@@ -54,7 +54,7 @@ func (k *KeyStoreCache) Get(key string) string {
 	// Miss - load from database and save it in cache
 	p := page{key, k.load(key)}
 	// if cache is full remove the least used item
-	if len(k.cache) == CacheSize {
+	if len(k.cache) >= CacheSize {
 		end := k.pages.Back()
 		// remove from map
 		delete(k.cache, end.Value.(page).Key)
