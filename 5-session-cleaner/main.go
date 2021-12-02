@@ -24,17 +24,18 @@ import (
 	"time"
 )
 
+const sessionMaxLengthSecond = 5
+
 // SessionManager keeps track of all sessions from creation, updating
 // to destroying.
 type SessionManager struct {
 	sessions map[string]Session
-	mut sync.Mutex
+	mut sync.RWMutex
 }
 
 // Session stores the session's data
 type Session struct {
 	Data map[string]interface{}
-	mut sync.Mutex
 	updatedAt time.Time
 }
 
@@ -43,12 +44,15 @@ func NewSessionManager() *SessionManager {
 	m := &SessionManager{
 		sessions: make(map[string]Session),
 	}
+	go m.sessionCleaner()
 
 	return m
 }
 
 // CreateSession creates a new session and returns the sessionID
 func (m *SessionManager) CreateSession() (string, error) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 	sessionID, err := MakeSessionID()
 	if err != nil {
 		return "", err
@@ -73,10 +77,7 @@ func (m *SessionManager) GetSessionData(sessionID string) (map[string]interface{
 	if !ok {
 		return nil, ErrSessionNotFound
 	}
-	if time.Since(session.updatedAt) > time.Second*5 {
-		delete(m.sessions, sessionID)
-		return nil, ErrSessionNotFound
-	}
+
 	return session.Data, nil
 }
 
@@ -96,6 +97,20 @@ func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]int
 	}
 
 	return nil
+}
+
+func (m *SessionManager) sessionCleaner() {
+	for {
+		time.Sleep(time.Millisecond)
+		m.mut.Lock()
+		for id, session := range m.sessions {
+			sinceUpdate := time.Since(session.updatedAt).Seconds()
+			if sinceUpdate > sessionMaxLengthSecond {
+				delete(m.sessions, id)
+			}
+		}
+		m.mut.Unlock()
+	}
 }
 
 func main() {
