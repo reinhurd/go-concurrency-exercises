@@ -101,7 +101,7 @@ func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]int
 
 func (m *SessionManager) sessionCleaner() {
 	for {
-		time.Sleep(time.Millisecond)
+		time.Sleep(time.Second)
 		m.mut.Lock()
 		for id, session := range m.sessions {
 			sinceUpdate := time.Since(session.updatedAt).Seconds()
