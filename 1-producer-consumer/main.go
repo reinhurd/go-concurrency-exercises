@@ -13,8 +13,10 @@ import (
 	"time"
 )
 
+const chanBufferSize = 10
+
 func producer(stream Stream) <-chan Tweet {
-	tweets := make(chan Tweet)
+	tweets := make(chan Tweet, chanBufferSize)
 	go func() {
 		for {
 			tweet, err := stream.Next()
