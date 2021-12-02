@@ -37,22 +37,17 @@ func HandleRequest(process func(), u *User) bool {
 	defer u.mut.Unlock()
 
 	ch := make(chan bool)
+
 	go func() {
 		process()
 		ch <- true
 	}()
-	timeCounter := 0
-	for {
-		if timeCounter >= timeLimitSeconds {
+
+	select {
+		case <-time.After(time.Second*timeLimitSeconds):
 			return false
-		}
-		select {
-			case <-time.After(time.Second):
-				timeCounter++
-				continue
-			case <-ch:
-				return true
-			}
+		case <-ch:
+			return true
 	}
 }
 
