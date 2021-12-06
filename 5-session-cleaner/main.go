@@ -51,13 +51,13 @@ func NewSessionManager() *SessionManager {
 
 // CreateSession creates a new session and returns the sessionID
 func (m *SessionManager) CreateSession() (string, error) {
-	m.mut.Lock()
-	defer m.mut.Unlock()
 	sessionID, err := MakeSessionID()
 	if err != nil {
 		return "", err
 	}
 
+	m.mut.Lock()
+	defer m.mut.Unlock()
 	m.sessions[sessionID] = Session{
 		Data:      make(map[string]interface{}),
 		updatedAt: time.Now(),
@@ -73,6 +73,8 @@ var ErrSessionNotFound = errors.New("SessionID does not exists")
 // GetSessionData returns data related to session if sessionID is
 // found, errors otherwise
 func (m *SessionManager) GetSessionData(sessionID string) (map[string]interface{}, error) {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
 	session, ok := m.sessions[sessionID]
 	if !ok {
 		return nil, ErrSessionNotFound
@@ -83,7 +85,9 @@ func (m *SessionManager) GetSessionData(sessionID string) (map[string]interface{
 
 // UpdateSessionData overwrites the old session data with the new one
 func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]interface{}) error {
+	m.mut.RLock()
 	_, ok := m.sessions[sessionID]
+	m.mut.RUnlock()
 	if !ok {
 		return ErrSessionNotFound
 	}
