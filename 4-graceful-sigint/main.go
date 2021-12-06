@@ -13,10 +13,36 @@
 
 package main
 
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+)
+
+var isStopping bool
+
 func main() {
 	// Create a process
 	proc := MockProcess{}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT)
+	go func() {
+		<-sigs
+		isStopping = true
+		go proc.Stop()
+	}()
+	go killIdleProc(sigs)
 
 	// Run the process (blocking)
 	proc.Run()
+}
+
+func killIdleProc(sigs <- chan os.Signal) {
+	for {
+		if isStopping {
+			fmt.Print("Process killed by getting signal ", <-sigs)
+			os.Exit(1)
+		}
+	}
 }

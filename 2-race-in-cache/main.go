@@ -8,7 +8,10 @@
 
 package main
 
-import "container/list"
+import (
+	"container/list"
+	"sync"
+)
 
 // CacheSize determines how big the cache can grow
 const CacheSize = 100
@@ -29,24 +32,36 @@ type KeyStoreCache struct {
 	cache map[string]*list.Element
 	pages list.List
 	load  func(string) string
+	rwmut sync.RWMutex
 }
 
 // New creates a new KeyStoreCache
 func New(load KeyStoreCacheLoader) *KeyStoreCache {
 	return &KeyStoreCache{
 		load:  load.Load,
-		cache: make(map[string]*list.Element),
+		cache: make(map[string]*list.Element, CacheSize),
 	}
 }
 
-// Get gets the key from cache, loads it from the source if needed
-func (k *KeyStoreCache) Get(key string) string {
+func (k *KeyStoreCache) readCache(key string) (string, bool) {
+	k.rwmut.RLock()
+	defer k.rwmut.RUnlock()
 	if e, ok := k.cache[key]; ok {
 		k.pages.MoveToFront(e)
-		return e.Value.(page).Value
+		return e.Value.(page).Value, true
 	}
-	// Miss - load from database and save it in cache
-	p := page{key, k.load(key)}
+	return "", false
+}
+
+// Get gets the key from cache, loads it from the source if needed
+func (k *KeyStoreCache) writeCache(key string, p page) {
+	//make sure we don't try to cache something twice
+	if _, ok := k.readCache(key); ok {
+		return
+	}
+
+	k.rwmut.Lock()
+	defer k.rwmut.Unlock()
 	// if cache is full remove the least used item
 	if len(k.cache) >= CacheSize {
 		end := k.pages.Back()
@@ -57,6 +72,16 @@ func (k *KeyStoreCache) Get(key string) string {
 	}
 	k.pages.PushFront(p)
 	k.cache[key] = k.pages.Front()
+}
+
+func (k *KeyStoreCache) Get(key string) string {
+	if v, ok := k.readCache(key); ok {
+		return v
+	}
+
+	// Miss - load from database and save it in cache
+	p := page{key, k.load(key)}
+	k.writeCache(key, p)
 	return p.Value
 }
 
