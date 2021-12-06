@@ -55,13 +55,13 @@ func (k *KeyStoreCache) readCache(key string) (string, bool) {
 
 // Get gets the key from cache, loads it from the source if needed
 func (k *KeyStoreCache) writeCache(key string, p page) {
-	k.rwmut.Lock()
-	defer k.rwmut.Unlock()
-	// make sure we don't try to cache something twice
-	if _, ok := k.cache[key]; ok {
+	//make sure we don't try to cache something twice
+	if _, ok := k.readCache(key); ok {
 		return
 	}
 
+	k.rwmut.Lock()
+	defer k.rwmut.Unlock()
 	// if cache is full remove the least used item
 	if len(k.cache) >= CacheSize {
 		end := k.pages.Back()
